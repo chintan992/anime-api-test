@@ -18,6 +18,7 @@ import { routeTypes } from "./category.route.js";
 import { getWatchlist } from "../controllers/watchlist.controller.js";
 import getVoiceActors from "../controllers/actors.controller.js";
 import getCharacter from "../controllers/characters.controller.js";
+import express from "express";
 import * as filterController from "../controllers/filter.controller.js";
 import getTopSearch from "../controllers/topsearch.controller.js";
 
@@ -37,6 +38,40 @@ export const createApiRoutes = (app, jsonResponse, jsonError) => {
       }
     });
   };
+
+  // CORS proxy route for streaming URLs
+  app.get('/api/proxy', async (req, res) => {
+    try {
+      const { url } = req.query;
+      if (!url) {
+        return res.status(400).json({ error: 'Missing url parameter' });
+      }
+
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Accept': '*/*',
+          'Accept-Language': 'en-US,en;q=0.9',
+        }
+      });
+
+      if (!response.ok) {
+        return res.status(response.status).json({ error: 'Failed to fetch content' });
+      }
+
+      // Set CORS headers
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+      res.setHeader('Content-Type', response.headers.get('content-type') || 'application/octet-stream');
+
+      // Stream the response
+      response.body.pipe(res);
+    } catch (error) {
+      console.error('Proxy error:', error);
+      res.status(500).json({ error: 'Proxy error' });
+    }
+  });
 
   ["/api", "/api/"].forEach((route) => {
     app.get(route, async (req, res) => {
