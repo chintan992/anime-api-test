@@ -15,30 +15,21 @@ const __filename = fileURLToPath(import.meta.url);
 const publicDir = path.join(dirname(__filename), "public");
 const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(",");
 
-// Express CORS setup
+// Express CORS setup - Allow all origins for development
 app.use(
   cors({
-    origin: allowedOrigins?.includes("*") ? "*" : allowedOrigins || [],
+    origin: "*",
     methods: ["GET"],
+    credentials: false
   })
 );
 
-// Custom CORS middleware
+// Simplified CORS middleware - Allow all origins
 app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  if (
-    !allowedOrigins ||
-    allowedOrigins.includes("*") ||
-    (origin && allowedOrigins.includes(origin))
-  ) {
-    res.setHeader("Access-Control-Allow-Origin", origin || "*");
-    res.setHeader("Access-Control-Allow-Methods", "GET");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-    return next();
-  }
-  res
-    .status(403)
-    .json({ success: false, message: "Forbidden: Origin not allowed" });
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  next();
 });
 
 app.use(express.static(publicDir, { redirect: false }));
