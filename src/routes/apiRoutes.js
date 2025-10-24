@@ -47,29 +47,64 @@ export const createApiRoutes = (app, jsonResponse, jsonError) => {
         return res.status(400).json({ error: 'Missing url parameter' });
       }
 
+      console.log('Proxying request to:', url);
+
       const response = await fetch(url, {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
           'Accept': '*/*',
           'Accept-Language': 'en-US,en;q=0.9',
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache',
         }
       });
 
       if (!response.ok) {
-        return res.status(response.status).json({ error: 'Failed to fetch content' });
+        console.error('Target server error:', response.status, response.statusText);
+        return res.status(response.status).json({ error: `Failed to fetch content: ${response.status} ${response.statusText}` });
       }
 
       // Set CORS headers
       res.setHeader('Access-Control-Allow-Origin', '*');
-      res.setHeader('Access-Control-Allow-Methods', 'GET');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-      res.setHeader('Content-Type', response.headers.get('content-type') || 'application/octet-stream');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Range, Accept, Origin, X-Requested-With');
+      res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Content-Type');
+      res.setHeader('Access-Control-Max-Age', '86400');
+
+      // Copy important headers from the target response
+      const contentType = response.headers.get('content-type');
+      if (contentType) {
+        res.setHeader('Content-Type', contentType);
+      }
+
+      const contentLength = response.headers.get('content-length');
+      if (contentLength) {
+        res.setHeader('Content-Length', contentLength);
+      }
+
+      const contentRange = response.headers.get('content-range');
+      if (contentRange) {
+        res.setHeader('Content-Range', contentRange);
+      }
+
+      // Handle range requests for video streaming
+      const range = req.headers.range;
+      if (range) {
+        res.setHeader('Accept-Ranges', 'bytes');
+        res.status(206); // Partial Content
+      }
+
+      console.log('Proxying response with headers:', {
+        'Content-Type': contentType,
+        'Content-Length': contentLength,
+        'Range': range
+      });
 
       // Stream the response
       response.body.pipe(res);
     } catch (error) {
       console.error('Proxy error:', error);
-      res.status(500).json({ error: 'Proxy error' });
+      res.status(500).json({ error: 'Proxy error: ' + error.message });
     }
   });
 
